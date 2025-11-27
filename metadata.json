@@ -1,0 +1,5 @@
+{
+  "name": "SendSecure AI",
+  "description": "A lightweight, ephemeral file sharing application inspired by Firefox Send. Features admin-only uploads, automatic file expiration based on time or download count, and AI-powered file summarization using Gemini.",
+  "requestFramePermissions": []
+}
