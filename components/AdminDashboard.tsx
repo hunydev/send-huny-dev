@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { listFiles, deleteFile } from '../services/mockStorage';
-import { SharedFile } from '../types';
+import { SharedFile, User } from '../types';
 import FileUpload from './FileUpload';
-import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut } from 'lucide-react';
 
 interface AdminDashboardProps {
+  user?: User;
   onNavigateToPublic: (id: string) => void;
+  onLogout: () => void;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToPublic }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPublic, onLogout }) => {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,19 +56,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToPublic }) =
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-semibold text-slate-800">{user?.name || 'Admin User'}</p>
+            <p className="text-xs text-slate-500">{user?.email || 'admin@huny.dev'}</p>
+          </div>
+          <button 
+            onClick={onLogout}
+            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left Column: Upload */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
             <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg">
-              <h1 className="text-2xl font-bold mb-2">SendSecure AI</h1>
+              <h2 className="text-xl font-bold mb-2">SendSecure AI</h2>
               <p className="text-indigo-100 text-sm mb-6">
                 Share files privately. They expire automatically.
               </p>
               <div className="flex items-center gap-2 text-xs font-medium bg-white/10 p-2 rounded-lg">
                 <ShieldCheck className="w-4 h-4 text-emerald-300" />
-                <span>Admin Session Active</span>
+                <span>Secure Admin Session</span>
               </div>
             </div>
             

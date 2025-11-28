@@ -1,7 +1,10 @@
 export enum AppView {
-  ADMIN_LOGIN = 'ADMIN_LOGIN',
+  LOGIN = 'LOGIN',
+  CALLBACK = 'CALLBACK',
+  ADMIN_LOGIN = 'ADMIN_LOGIN', // Legacy/Unused
   ADMIN_DASHBOARD = 'ADMIN_DASHBOARD',
   PUBLIC_DOWNLOAD = 'PUBLIC_DOWNLOAD',
+  GUEST_HOME = 'GUEST_HOME',
 }
 
 export interface FileConfig {
@@ -29,7 +32,17 @@ export interface UploadResponse {
   shareUrl: string;
 }
 
+export interface User {
+  sub: string;
+  name: string;
+  email: string;
+  email_verified: boolean;
+  role?: string;
+}
+
 export interface AuthState {
   isAuthenticated: boolean;
+  isGuest: boolean;
   token?: string;
+  user?: User;
 }
