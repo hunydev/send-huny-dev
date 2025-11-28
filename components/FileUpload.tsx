@@ -1,14 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { UploadCloud, FileText, X, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileText, X, Sparkles, AlertCircle } from 'lucide-react';
 import { FileConfig } from '../types';
-import { uploadFileToStorage } from '../services/apiStorage';
+import { uploadFileToStorage, AuthError } from '../services/apiStorage';
 import { generateFileSummary } from '../services/geminiService';
 
 interface FileUploadProps {
   onUploadComplete: () => void;
+  onAuthError?: () => void;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, onAuthError }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -70,7 +71,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       onUploadComplete();
     } catch (err) {
       console.error(err);
-      setError("Failed to upload file. Please try again.");
+      if (err instanceof AuthError) {
+        setError("Session expired. Please login again.");
+        if (onAuthError) {
+          setTimeout(() => onAuthError(), 1500);
+        }
+      } else {
+        setError("Failed to upload file. Please try again.");
+      }
     } finally {
       setIsUploading(false);
     }

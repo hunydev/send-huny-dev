@@ -2,10 +2,30 @@ import { SharedFile, FileConfig, UploadResponse } from '../types';
 
 const API_BASE = '/api';
 
+// Custom error class for auth errors
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
 // Helper to get auth header
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('auth_token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
+// Helper to handle response errors
+const handleResponseError = async (response: Response): Promise<never> => {
+  if (response.status === 401) {
+    // Clear invalid auth data
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    throw new AuthError('Session expired. Please log in again.');
+  }
+  const error = await response.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
+  throw new Error(error.error || 'Request failed');
 };
 
 export const uploadFileToStorage = async (
@@ -27,11 +47,10 @@ export const uploadFileToStorage = async (
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Upload failed');
+    await handleResponseError(response);
   }
 
-  const result = await response.json();
+  const result = await response.json() as { data: UploadResponse };
   return result.data;
 };
 
@@ -41,7 +60,7 @@ export const getFileMetadata = async (fileId: string): Promise<SharedFile | null
   
   if (!response.ok) {
     if (response.status === 404 || response.status === 410) {
-      const result = await response.json();
+      const result = await response.json() as { data?: { isExpired?: boolean; name?: string } };
       if (result.data?.isExpired) {
         return {
           id: fileId,
@@ -60,12 +79,12 @@ export const getFileMetadata = async (fileId: string): Promise<SharedFile | null
     throw new Error('Failed to get file metadata');
   }
 
-  const result = await response.json();
+  const result = await response.json() as { data: Partial<SharedFile> };
   return {
     id: fileId,
     ...result.data,
     isExpired: false,
-  };
+  } as SharedFile;
 };
 
 export const incrementDownloadCount = async (fileId: string): Promise<void> => {
@@ -101,8 +120,7 @@ export const deleteFile = async (fileId: string): Promise<void> => {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Delete failed');
+    await handleResponseError(response);
   }
 };
 
@@ -112,12 +130,9 @@ export const listFiles = async (): Promise<SharedFile[]> => {
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Unauthorized');
-    }
-    throw new Error('Failed to list files');
+    await handleResponseError(response);
   }
 
-  const result = await response.json();
+  const result = await response.json() as { data?: SharedFile[] };
   return result.data || [];
 };

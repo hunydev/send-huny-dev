@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { listFiles, deleteFile } from '../services/apiStorage';
+import { listFiles, deleteFile, AuthError } from '../services/apiStorage';
 import { SharedFile, User } from '../types';
 import FileUpload from './FileUpload';
-import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut, Check } from 'lucide-react';
+import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut, Check, AlertCircle } from 'lucide-react';
 
 interface AdminDashboardProps {
   user?: User;
@@ -13,19 +13,35 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPublic, onLogout }) => {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const showToast = (message: string) => {
-    setToast(message);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAuthError = (error: unknown) => {
+    if (error instanceof AuthError) {
+      showToast('Session expired. Please login again.', 'error');
+      setTimeout(() => onLogout(), 1500);
+      return true;
+    }
+    return false;
   };
 
   const refreshFiles = async () => {
     setLoading(true);
-    const data = await listFiles();
-    // Sort by createdAt desc
-    setFiles(data.sort((a, b) => b.createdAt - a.createdAt));
-    setLoading(false);
+    try {
+      const data = await listFiles();
+      // Sort by createdAt desc
+      setFiles(data.sort((a, b) => b.createdAt - a.createdAt));
+    } catch (error) {
+      if (!handleAuthError(error)) {
+        showToast('Failed to load files.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -34,8 +50,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this file?")) {
-      await deleteFile(id);
-      refreshFiles();
+      try {
+        await deleteFile(id);
+        showToast('File deleted successfully.');
+        refreshFiles();
+      } catch (error) {
+        if (!handleAuthError(error)) {
+          showToast('Failed to delete file.', 'error');
+        }
+      }
     }
   };
 
@@ -47,7 +70,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
     const publicId = getPublicId(file);
     const url = `${window.location.origin}/#${publicId}`;
     navigator.clipboard.writeText(url);
-    showToast('Link copied to clipboard!');
+    showToast('Link copied to clipboard!', 'success');
   };
 
   const openPublicView = (file: SharedFile) => {
@@ -105,7 +128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
               </div>
             </div>
             
-            <FileUpload onUploadComplete={refreshFiles} />
+            <FileUpload onUploadComplete={refreshFiles} onAuthError={onLogout} />
           </div>
         </div>
 
@@ -195,9 +218,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
-          <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg">
-            <Check className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm font-medium">{toast}</span>
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg ${
+            toast.type === 'error' 
+              ? 'bg-red-600 text-white' 
+              : 'bg-slate-900 text-white'
+          }`}>
+            {toast.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-200" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-400" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}
