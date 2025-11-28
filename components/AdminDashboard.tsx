@@ -118,7 +118,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
             <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg">
-              <h2 className="text-xl font-bold mb-2">SendSecure AI</h2>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden">
+                  <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                </div>
+                <h2 className="text-xl font-bold">SendSecure AI</h2>
+              </div>
               <p className="text-indigo-100 text-sm mb-6">
                 Share files privately. They expire automatically.
               </p>

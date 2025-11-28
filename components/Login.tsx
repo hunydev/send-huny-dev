@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { authService } from '../services/authService';
 
 interface LoginProps {
@@ -18,8 +18,8 @@ const Login: React.FC<LoginProps> = ({ onGuestLogin }) => {
         
         {/* Header */}
         <div className="bg-indigo-600 p-8 text-center">
-          <div className="mx-auto w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm mb-4">
-            <Lock className="w-8 h-8 text-white" />
+          <div className="mx-auto w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 overflow-hidden">
+            <img src="/logo.png" alt="SendSecure AI" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">SendSecure AI</h1>
           <p className="text-indigo-100 text-sm">Secure, ephemeral file sharing for teams.</p>
@@ -37,8 +37,8 @@ const Login: React.FC<LoginProps> = ({ onGuestLogin }) => {
               onClick={handleSsoLogin}
               className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl font-medium transition-all shadow-md hover:shadow-lg"
             >
-              <div className="bg-white/20 p-1 rounded">
-                 <Lock className="w-4 h-4" />
+              <div className="bg-white p-1 rounded overflow-hidden">
+                 <img src="/logo.png" alt="" className="w-4 h-4 object-contain" />
               </div>
               Sign in with HunyDev
             </button>
