@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getFileMetadata, incrementDownloadCount } from '../services/mockStorage';
+import { getFileMetadata, downloadPublicFile } from '../services/apiStorage';
 import { SharedFile } from '../types';
 import { Download, FileText, AlertTriangle, CheckCircle, Sparkles } from 'lucide-react';
 
@@ -37,19 +37,38 @@ const PublicDownload: React.FC<PublicDownloadProps> = ({ fileId, onBack }) => {
   }, [fileId]);
 
   const handleDownload = async () => {
-    if (!file || !file.blobData) return;
+    if (!file) return;
     
-    // Simulate download trigger
-    const link = document.createElement('a');
-    link.href = file.blobData;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const result = await downloadPublicFile(fileId);
+      
+      if (!result) {
+        setError("Failed to download file.");
+        return;
+      }
+      
+      // Create download link
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-    // Update server state
-    await incrementDownloadCount(file.id);
-    setDownloaded(true);
+      setDownloaded(true);
+      
+      // Update local file state to reflect download
+      setFile(prev => prev ? {
+        ...prev,
+        currentDownloads: prev.currentDownloads + 1,
+        isExpired: prev.currentDownloads + 1 >= prev.maxDownloads
+      } : null);
+    } catch (err) {
+      console.error('Download error:', err);
+      setError("Failed to download file.");
+    }
   };
 
   if (loading) {

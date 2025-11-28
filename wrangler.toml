@@ -1,0 +1,28 @@
+name = "send"
+main = "src/worker.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment Variables (secrets should be set via wrangler secret)
+[vars]
+AUTH_SERVER = "https://auth.huny.dev"
+CLIENT_ID = "client_HRENw26wlSsgG4HfrAGjqMMw"
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "send"
+
+# Custom Domain
+[[routes]]
+pattern = "send.huny.dev/*"
+zone_name = "huny.dev"
+
+# Assets (static files from dist folder)
+[site]
+bucket = "./dist"
+
+# Development settings
+[dev]
+port = 8787
+local_protocol = "http"

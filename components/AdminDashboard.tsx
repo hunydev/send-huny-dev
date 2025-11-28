@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { listFiles, deleteFile } from '../services/mockStorage';
+import { listFiles, deleteFile } from '../services/apiStorage';
 import { SharedFile, User } from '../types';
 import FileUpload from './FileUpload';
 import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut } from 'lucide-react';
@@ -33,9 +33,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
     }
   };
 
-  const copyLink = (id: string) => {
-    // In a real app, this would be a full URL
-    const url = `${window.location.origin}#${id}`;
+  const copyLink = (file: SharedFile) => {
+    // Use publicId if available, otherwise use id
+    const publicId = (file as any).publicId || file.id;
+    const url = `${window.location.origin}#${publicId}`;
     navigator.clipboard.writeText(url);
     alert(`Link copied: ${url}`);
   };
@@ -147,7 +148,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
 
                       <div className="flex items-center gap-2">
                          <button 
-                          onClick={() => copyLink(file.id)}
+                          onClick={() => copyLink(file)}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                           title="Copy Link"
                         >

@@ -9,9 +9,20 @@ import { authService } from './services/authService';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.LOGIN);
   const [targetFileId, setTargetFileId] = useState<string | null>(null);
-  const [auth, setAuth] = useState<AuthState>({
-    isAuthenticated: false,
-    isGuest: false
+  const [auth, setAuth] = useState<AuthState>(() => {
+    // Restore auth state from sessionStorage
+    const token = sessionStorage.getItem('auth_token');
+    const userStr = sessionStorage.getItem('auth_user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        return { isAuthenticated: true, isGuest: false, token, user };
+      } catch {
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_user');
+      }
+    }
+    return { isAuthenticated: false, isGuest: false };
   });
 
   useEffect(() => {
@@ -55,6 +66,10 @@ const App: React.FC = () => {
     // 2. Handle Message Listener (Main App context)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'AUTH_SUCCESS') {
+        // Store in sessionStorage for persistence and API calls
+        sessionStorage.setItem('auth_token', event.data.token);
+        sessionStorage.setItem('auth_user', JSON.stringify(event.data.user));
+        
         setAuth({
           isAuthenticated: true,
           isGuest: false,
@@ -145,6 +160,10 @@ const App: React.FC = () => {
     if (auth.token) {
       await authService.logout(auth.token);
     }
+    // Clear sessionStorage
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_user');
+    
     setAuth({ isAuthenticated: false, isGuest: false, token: undefined, user: undefined });
     setCurrentView(AppView.LOGIN);
     // Clear hash if any, to prevent immediate re-routing to download if they want to fully logout

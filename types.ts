@@ -24,11 +24,13 @@ export interface SharedFile {
   currentDownloads: number;
   isExpired: boolean;
   summary?: string; // AI Summary
-  blobData?: string; // Base64 simulation for demo purposes
+  blobData?: string; // Base64 simulation for demo purposes (deprecated)
+  publicId?: string; // Public sharing ID
 }
 
 export interface UploadResponse {
   fileId: string;
+  publicId: string;
   shareUrl: string;
 }
 

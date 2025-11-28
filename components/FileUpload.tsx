@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { UploadCloud, FileText, X, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { FileConfig } from '../types';
-import { uploadFileToStorage } from '../services/mockStorage';
+import { uploadFileToStorage } from '../services/apiStorage';
 import { generateFileSummary } from '../services/geminiService';
 
 interface FileUploadProps {

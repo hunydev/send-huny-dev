@@ -1,7 +1,7 @@
 import { User } from '../types';
 
-const CLIENT_ID = 'client_ltDBjVnOrRQQUgTkUv0G8Xlu';
-const CALLBACK_URI = 'https://send.huny.dev/callback';
+const CLIENT_ID = 'client_HRENw26wlSsgG4HfrAGjqMMw';
+const CALLBACK_URI = 'https://send.huny.dev/api/auth/callback';
 const AUTH_SERVER = 'https://auth.huny.dev';
 
 // Note: Client Secret is provided but typically not used in SPA PKCE flow for security.
