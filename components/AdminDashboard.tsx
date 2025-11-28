@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { listFiles, deleteFile } from '../services/apiStorage';
 import { SharedFile, User } from '../types';
 import FileUpload from './FileUpload';
-import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut } from 'lucide-react';
+import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut, Check } from 'lucide-react';
 
 interface AdminDashboardProps {
   user?: User;
@@ -13,6 +13,12 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPublic, onLogout }) => {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const refreshFiles = async () => {
     setLoading(true);
@@ -33,12 +39,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
     }
   };
 
+  const getPublicId = (file: SharedFile): string => {
+    return (file as any).publicId || file.id;
+  };
+
   const copyLink = (file: SharedFile) => {
-    // Use publicId if available, otherwise use id
-    const publicId = (file as any).publicId || file.id;
-    const url = `${window.location.origin}#${publicId}`;
+    const publicId = getPublicId(file);
+    const url = `${window.location.origin}/#${publicId}`;
     navigator.clipboard.writeText(url);
-    alert(`Link copied: ${url}`);
+    showToast('Link copied to clipboard!');
+  };
+
+  const openPublicView = (file: SharedFile) => {
+    const publicId = getPublicId(file);
+    window.open(`${window.location.origin}/#${publicId}`, '_blank');
   };
 
   const getExpirationText = (file: SharedFile) => {
@@ -155,9 +169,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
                           <Copy className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => onNavigateToPublic(file.id)}
+                          onClick={() => openPublicView(file)}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="View Public Page"
+                          title="Open Public Page in New Tab"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </button>
@@ -177,6 +191,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+          <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-medium">{toast}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
