@@ -9,8 +9,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Gemini AI](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 
-<img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="SendSecure AI Banner" width="100%" />
-
 *다운로드 횟수 및 시간 제한이 있는 보안 파일 공유 + AI 기반 파일 요약*
 
 [🚀 Live Demo](https://send.huny.dev) • [📖 Documentation](#-사용-방법) • [🛠️ Installation](#️-설치-방법)
