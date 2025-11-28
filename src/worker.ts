@@ -17,6 +17,17 @@ export default {
 };
 
 async function serveStaticAssets(request: Request, env: Env, url: URL): Promise<Response> {
+  // Check if ASSETS binding is available (may not be in preview mode)
+  if (!env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
+    return new Response(
+      '<!DOCTYPE html><html><body><h1>Assets not available</h1><p>The ASSETS binding is not configured. This may happen in preview mode.</p></body></html>',
+      { 
+        status: 503, 
+        headers: { 'Content-Type': 'text/html' } 
+      }
+    );
+  }
+
   const path = url.pathname;
   
   // For SPA routing: if it's not a file path (no extension), serve index.html
