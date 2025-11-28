@@ -117,6 +117,8 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
         const authData = {
           type: 'AUTH_SUCCESS',
           token: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresIn: tokens.expires_in,
           user: user
         };
         
@@ -126,6 +128,8 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
         } else {
           // Store in localStorage (persists across tabs) and redirect
           localStorage.setItem('auth_token', tokens.access_token);
+          localStorage.setItem('auth_refresh_token', tokens.refresh_token);
+          localStorage.setItem('auth_expires_at', String(Date.now() + (tokens.expires_in * 1000)));
           localStorage.setItem('auth_user', JSON.stringify(user));
           window.location.href = '/';
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AdminDashboard from './components/AdminDashboard';
 import PublicDownload from './components/PublicDownload';
 import GuestDashboard from './components/GuestDashboard';
@@ -6,7 +6,15 @@ import Login from './components/Login';
 import { AppView, AuthState } from './types';
 import { authService } from './services/authService';
 
+const AUTH_SERVER = 'https://auth.huny.dev';
+const CLIENT_ID = 'client_HRENw26wlSsgG4HfrAGjqMMw';
+
+// Refresh token 5 minutes before expiry
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
 const App: React.FC = () => {
+  const refreshTimeoutRef = useRef<number | null>(null);
+  
   // Check for hash-based public download route immediately
   const initialHash = window.location.hash.substring(1);
   const initialFileId = initialHash || null;
@@ -41,6 +49,114 @@ const App: React.FC = () => {
     }
     return { isAuthenticated: false, isGuest: false };
   });
+
+  // Token refresh function
+  const refreshAccessToken = useCallback(async () => {
+    const refreshToken = localStorage.getItem('auth_refresh_token');
+    if (!refreshToken) {
+      console.log('No refresh token available');
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${AUTH_SERVER}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: CLIENT_ID,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Token refresh failed:', response.status);
+        // Clear auth state on refresh failure
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_refresh_token');
+        localStorage.removeItem('auth_expires_at');
+        setAuth({ isAuthenticated: false, isGuest: false });
+        setCurrentView(AppView.LOGIN);
+        return false;
+      }
+
+      const tokens = await response.json() as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in?: number;
+      };
+      
+      // Update localStorage
+      localStorage.setItem('auth_token', tokens.access_token);
+      if (tokens.refresh_token) {
+        localStorage.setItem('auth_refresh_token', tokens.refresh_token);
+      }
+      if (tokens.expires_in) {
+        localStorage.setItem('auth_expires_at', String(Date.now() + (tokens.expires_in * 1000)));
+      }
+
+      // Update auth state
+      setAuth(prev => ({
+        ...prev,
+        token: tokens.access_token,
+      }));
+
+      console.log('Token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      return false;
+    }
+  }, []);
+
+  // Schedule token refresh
+  const scheduleTokenRefresh = useCallback(() => {
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current) {
+      window.clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+
+    const expiresAtStr = localStorage.getItem('auth_expires_at');
+    if (!expiresAtStr) return;
+
+    const expiresAt = parseInt(expiresAtStr, 10);
+    const now = Date.now();
+    const timeUntilExpiry = expiresAt - now;
+    const timeUntilRefresh = timeUntilExpiry - REFRESH_BUFFER_MS;
+
+    if (timeUntilRefresh <= 0) {
+      // Token is expired or about to expire, refresh immediately
+      refreshAccessToken().then(success => {
+        if (success) {
+          scheduleTokenRefresh();
+        }
+      });
+    } else {
+      // Schedule refresh
+      console.log(`Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000)} seconds`);
+      refreshTimeoutRef.current = window.setTimeout(async () => {
+        const success = await refreshAccessToken();
+        if (success) {
+          scheduleTokenRefresh();
+        }
+      }, timeUntilRefresh);
+    }
+  }, [refreshAccessToken]);
+
+  // Setup token refresh on mount and when auth changes
+  useEffect(() => {
+    if (auth.isAuthenticated) {
+      scheduleTokenRefresh();
+    }
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [auth.isAuthenticated, scheduleTokenRefresh]);
 
   useEffect(() => {
     // 1. Handle OAuth Callback (Popup context)
@@ -86,6 +202,12 @@ const App: React.FC = () => {
         // Store in localStorage for persistence across tabs
         localStorage.setItem('auth_token', event.data.token);
         localStorage.setItem('auth_user', JSON.stringify(event.data.user));
+        if (event.data.refreshToken) {
+          localStorage.setItem('auth_refresh_token', event.data.refreshToken);
+        }
+        if (event.data.expiresIn) {
+          localStorage.setItem('auth_expires_at', String(Date.now() + (event.data.expiresIn * 1000)));
+        }
         
         setAuth({
           isAuthenticated: true,
@@ -180,6 +302,8 @@ const App: React.FC = () => {
     // Clear localStorage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_refresh_token');
+    localStorage.removeItem('auth_expires_at');
     
     setAuth({ isAuthenticated: false, isGuest: false, token: undefined, user: undefined });
     setCurrentView(AppView.LOGIN);
