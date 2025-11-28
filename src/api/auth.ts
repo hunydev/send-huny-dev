@@ -29,97 +29,128 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const codeVerifier = url.searchParams.get('code_verifier');
 
   if (!code) {
     return redirectWithError('Missing authorization code');
   }
 
-  try {
-    // Exchange code for tokens
-    // Note: code_verifier should be passed from the client since it's stored in sessionStorage
-    // For server-side callback, the client needs to include it somehow
-    // Option 1: Pass via state (encoded)
-    // Option 2: Client calls this endpoint with code_verifier as query param
-    
-    const tokenParams: Record<string, string> = {
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: CALLBACK_URI,
-      client_id: env.CLIENT_ID,
-    };
-
-    // If code_verifier is provided (from client), use it
-    if (codeVerifier) {
-      tokenParams.code_verifier = codeVerifier;
-    }
-
-    // If we have client secret (confidential client), use it
-    if (env.CLIENT_SECRET) {
-      tokenParams.client_secret = env.CLIENT_SECRET;
-    }
-
-    const tokenResponse = await fetch(`${env.AUTH_SERVER}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(tokenParams),
-    });
-
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      console.error('Token exchange failed:', error);
-      return redirectWithError('Token exchange failed');
-    }
-
-    const tokens = await tokenResponse.json() as { access_token: string; refresh_token?: string };
-
-    // Fetch user info
-    const userResponse = await fetch(`${env.AUTH_SERVER}/oauth/userinfo`, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    });
-
-    if (!userResponse.ok) {
-      return redirectWithError('Failed to fetch user info');
-    }
-
-    const user = await userResponse.json() as User;
-
-    // Return HTML that sends message to parent window and closes
-    const html = `
+  // Return HTML that handles token exchange on client side
+  // This allows access to sessionStorage where code_verifier is stored
+  const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Authentication Successful</title>
+  <title>Authenticating...</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; }
+    .container { text-align: center; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #64748b; }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <div class="spinner"></div>
+    <p>Completing authentication...</p>
+  </div>
   <script>
-    const authData = {
-      type: 'AUTH_SUCCESS',
-      token: ${JSON.stringify(tokens.access_token)},
-      user: ${JSON.stringify(user)}
-    };
-    
-    if (window.opener) {
-      window.opener.postMessage(authData, '${url.origin}');
-      window.close();
-    } else {
-      // Fallback: redirect to main app with token in hash
-      window.location.href = '/#auth=' + encodeURIComponent(JSON.stringify(authData));
-    }
+    (async function() {
+      const code = ${JSON.stringify(code)};
+      const state = ${JSON.stringify(state)};
+      const origin = ${JSON.stringify(url.origin)};
+      
+      const savedState = sessionStorage.getItem('oauth_state');
+      const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
+      
+      // Validate state
+      if (state !== savedState) {
+        sendError('State mismatch - possible CSRF attack');
+        return;
+      }
+      
+      if (!codeVerifier) {
+        sendError('Missing code verifier - please try logging in again');
+        return;
+      }
+      
+      try {
+        // Exchange code for tokens
+        const tokenResponse = await fetch('${env.AUTH_SERVER}/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: '${CALLBACK_URI}',
+            client_id: '${env.CLIENT_ID}',
+            code_verifier: codeVerifier,
+          }),
+        });
+        
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          console.error('Token exchange failed:', errorText);
+          sendError('Token exchange failed');
+          return;
+        }
+        
+        const tokens = await tokenResponse.json();
+        
+        // Fetch user info
+        const userResponse = await fetch('${env.AUTH_SERVER}/oauth/userinfo', {
+          headers: { Authorization: 'Bearer ' + tokens.access_token },
+        });
+        
+        if (!userResponse.ok) {
+          sendError('Failed to fetch user info');
+          return;
+        }
+        
+        const user = await userResponse.json();
+        
+        // Clean up
+        sessionStorage.removeItem('pkce_code_verifier');
+        sessionStorage.removeItem('oauth_state');
+        
+        // Send success to opener
+        const authData = {
+          type: 'AUTH_SUCCESS',
+          token: tokens.access_token,
+          user: user
+        };
+        
+        if (window.opener) {
+          window.opener.postMessage(authData, origin);
+          window.close();
+        } else {
+          // Store and redirect
+          sessionStorage.setItem('auth_token', tokens.access_token);
+          sessionStorage.setItem('auth_user', JSON.stringify(user));
+          window.location.href = '/';
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        sendError('Authentication failed: ' + error.message);
+      }
+      
+      function sendError(message) {
+        if (window.opener) {
+          window.opener.postMessage({ type: 'AUTH_ERROR', error: message }, origin);
+          window.close();
+        } else {
+          window.location.href = '/?error=' + encodeURIComponent(message);
+        }
+      }
+    })();
   </script>
-  <p>Authentication successful. This window should close automatically.</p>
-  <p>If it doesn't, <a href="/">click here to continue</a>.</p>
 </body>
 </html>
-    `;
+  `;
 
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' },
-    });
-  } catch (error) {
-    console.error('Callback error:', error);
-    return redirectWithError('Authentication failed');
-  }
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html' },
+  });
 }
 
 function redirectWithError(error: string): Response {

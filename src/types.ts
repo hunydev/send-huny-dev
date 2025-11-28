@@ -3,8 +3,8 @@ export interface Env {
   // R2 Bucket
   STORAGE: R2Bucket;
   
-  // Static assets (from wrangler site config)
-  __STATIC_CONTENT?: KVNamespace;
+  // Static assets binding
+  ASSETS: Fetcher;
   
   // Environment variables
   AUTH_SERVER: string;
