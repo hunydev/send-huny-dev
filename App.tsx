@@ -7,8 +7,25 @@ import { AppView, AuthState } from './types';
 import { authService } from './services/authService';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<AppView>(AppView.LOGIN);
-  const [targetFileId, setTargetFileId] = useState<string | null>(null);
+  // Check for hash-based public download route immediately
+  const initialHash = window.location.hash.substring(1);
+  const initialFileId = initialHash || null;
+  
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    // If there's a hash, show public download immediately (no flash)
+    if (initialHash) {
+      return AppView.PUBLIC_DOWNLOAD;
+    }
+    // Otherwise, determine based on auth state
+    const token = localStorage.getItem('auth_token');
+    const userStr = localStorage.getItem('auth_user');
+    if (token && userStr) {
+      return AppView.ADMIN_DASHBOARD;
+    }
+    return AppView.LOGIN;
+  });
+  
+  const [targetFileId, setTargetFileId] = useState<string | null>(initialFileId);
   const [auth, setAuth] = useState<AuthState>(() => {
     // Restore auth state from localStorage (persists across tabs)
     const token = localStorage.getItem('auth_token');
