@@ -13,7 +13,7 @@ const Login: React.FC<LoginProps> = ({ onGuestLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-start pt-12 sm:pt-16 md:justify-center md:pt-0 p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         
         {/* Header */}
