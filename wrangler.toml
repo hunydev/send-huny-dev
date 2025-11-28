@@ -14,9 +14,9 @@ binding = "STORAGE"
 bucket_name = "send"
 
 # Custom Domain
-[[routes]]
-pattern = "send.huny.dev/*"
-zone_name = "huny.dev"
+routes = [
+  { pattern = "send.huny.dev", custom_domain = true }
+]
 
 # Assets (static files from dist folder)
 [site]
