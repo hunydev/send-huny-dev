@@ -109,7 +109,7 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
         
         const user = await userResponse.json();
         
-        // Clean up
+        // Clean up PKCE data (stays in sessionStorage for security)
         sessionStorage.removeItem('pkce_code_verifier');
         sessionStorage.removeItem('oauth_state');
         
@@ -124,9 +124,9 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
           window.opener.postMessage(authData, origin);
           window.close();
         } else {
-          // Store and redirect
-          sessionStorage.setItem('auth_token', tokens.access_token);
-          sessionStorage.setItem('auth_user', JSON.stringify(user));
+          // Store in localStorage (persists across tabs) and redirect
+          localStorage.setItem('auth_token', tokens.access_token);
+          localStorage.setItem('auth_user', JSON.stringify(user));
           window.location.href = '/';
         }
       } catch (error) {

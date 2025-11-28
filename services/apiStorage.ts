@@ -4,7 +4,7 @@ const API_BASE = '/api';
 
 // Helper to get auth header
 const getAuthHeaders = (): HeadersInit => {
-  const token = sessionStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
