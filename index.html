@@ -20,7 +20,35 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+      /* Toast animation */
+      @keyframes fade-in {
+        from { opacity: 0; transform: translate(-50%, 10px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.2s ease-out;
+      }
     </style>
+    <script>
+      // Unregister any stale service workers that might cause 403 errors
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister();
+            console.log('Unregistered stale service worker');
+          }
+        });
+      }
+      // Clear caches that might contain stale responses
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) {
+            caches.delete(name);
+            console.log('Deleted cache:', name);
+          }
+        });
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {
