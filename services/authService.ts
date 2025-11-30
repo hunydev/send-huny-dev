@@ -51,6 +51,12 @@ class AuthService {
   // --- Auth Flow ---
 
   public async initiateLoginPopup(): Promise<void> {
+    // Clear any previous PKCE data before starting a new login flow
+    // This fixes the issue where switching from account A to B fails
+    // due to stale state/code_verifier from previous login attempt
+    sessionStorage.removeItem('pkce_code_verifier');
+    sessionStorage.removeItem('oauth_state');
+    
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = await this.generateCodeChallenge(codeVerifier);
     const state = this.generateState();
