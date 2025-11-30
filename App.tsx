@@ -158,6 +158,64 @@ const App: React.FC = () => {
     };
   }, [auth.isAuthenticated, scheduleTokenRefresh]);
 
+  // Check token validity when tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && auth.isAuthenticated) {
+        const expiresAtStr = localStorage.getItem('auth_expires_at');
+        if (expiresAtStr) {
+          const expiresAt = parseInt(expiresAtStr, 10);
+          const now = Date.now();
+          
+          // If token is expired or will expire within the buffer time
+          if (expiresAt - now <= REFRESH_BUFFER_MS) {
+            console.log('Token expired or expiring soon, refreshing on visibility change...');
+            const success = await refreshAccessToken();
+            if (success) {
+              scheduleTokenRefresh();
+            }
+          } else {
+            // Re-schedule refresh (timer may have drifted while tab was hidden)
+            scheduleTokenRefresh();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [auth.isAuthenticated, refreshAccessToken, scheduleTokenRefresh]);
+
+  // Listen for auth events from apiStorage
+  useEffect(() => {
+    const handleAuthFailed = () => {
+      console.log('Auth failed event received, logging out...');
+      setAuth({ isAuthenticated: false, isGuest: false, token: undefined, user: undefined });
+      setCurrentView(AppView.LOGIN);
+    };
+
+    const handleTokenRefreshed = (event: CustomEvent<{ token: string }>) => {
+      console.log('Token refreshed event received');
+      setAuth(prev => ({
+        ...prev,
+        token: event.detail.token,
+      }));
+      // Re-schedule the refresh timer
+      scheduleTokenRefresh();
+    };
+
+    window.addEventListener('authFailed', handleAuthFailed);
+    window.addEventListener('tokenRefreshed', handleTokenRefreshed as EventListener);
+    
+    return () => {
+      window.removeEventListener('authFailed', handleAuthFailed);
+      window.removeEventListener('tokenRefreshed', handleTokenRefreshed as EventListener);
+    };
+  }, [scheduleTokenRefresh]);
+
   useEffect(() => {
     // 1. Handle OAuth Callback (Popup context)
     // If this window was opened by the main app, it will have 'code' in params

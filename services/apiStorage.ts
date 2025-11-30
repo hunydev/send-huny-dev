@@ -1,6 +1,8 @@
 import { SharedFile, FileConfig, UploadResponse } from '../types';
 
 const API_BASE = '/api';
+const AUTH_SERVER = 'https://auth.huny.dev';
+const CLIENT_ID = 'client_HRENw26wlSsgG4HfrAGjqMMw';
 
 // Custom error class for auth errors
 export class AuthError extends Error {
@@ -10,18 +12,132 @@ export class AuthError extends Error {
   }
 }
 
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // Helper to get auth header
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('auth_token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
-// Helper to handle response errors
+// Token refresh function
+const refreshAccessToken = async (): Promise<boolean> => {
+  const refreshToken = localStorage.getItem('auth_refresh_token');
+  if (!refreshToken) {
+    console.log('No refresh token available');
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${AUTH_SERVER}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: CLIENT_ID,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Token refresh failed:', response.status);
+      return false;
+    }
+
+    const tokens = await response.json() as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+
+    // Update localStorage
+    localStorage.setItem('auth_token', tokens.access_token);
+    if (tokens.refresh_token) {
+      localStorage.setItem('auth_refresh_token', tokens.refresh_token);
+    }
+    if (tokens.expires_in) {
+      localStorage.setItem('auth_expires_at', String(Date.now() + (tokens.expires_in * 1000)));
+    }
+
+    console.log('Token refreshed successfully via API interceptor');
+    
+    // Dispatch event to notify App.tsx about the token refresh
+    window.dispatchEvent(new CustomEvent('tokenRefreshed', { 
+      detail: { token: tokens.access_token } 
+    }));
+    
+    return true;
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return false;
+  }
+};
+
+// Coordinated refresh to prevent race conditions
+const coordinatedRefresh = async (): Promise<boolean> => {
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+  
+  isRefreshing = true;
+  refreshPromise = refreshAccessToken().finally(() => {
+    isRefreshing = false;
+    refreshPromise = null;
+  });
+  
+  return refreshPromise;
+};
+
+// Clear auth data helper
+const clearAuthData = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  localStorage.removeItem('auth_refresh_token');
+  localStorage.removeItem('auth_expires_at');
+  
+  // Dispatch event to notify App.tsx about auth failure
+  window.dispatchEvent(new CustomEvent('authFailed'));
+};
+
+// Fetch with automatic token refresh on 401
+const fetchWithAuth = async (
+  url: string, 
+  options: RequestInit = {},
+  retry = true
+): Promise<Response> => {
+  const token = localStorage.getItem('auth_token');
+  const headers = new Headers(options.headers);
+  
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
+  const response = await fetch(url, { ...options, headers });
+  
+  // If 401 and we haven't retried yet, try refreshing the token
+  if (response.status === 401 && retry) {
+    const refreshSuccess = await coordinatedRefresh();
+    
+    if (refreshSuccess) {
+      // Retry the request with new token
+      return fetchWithAuth(url, options, false);
+    } else {
+      // Refresh failed, clear auth data
+      clearAuthData();
+      throw new AuthError('Session expired. Please log in again.');
+    }
+  }
+  
+  return response;
+};
+
+// Helper to handle response errors (for non-401 errors)
 const handleResponseError = async (response: Response): Promise<never> => {
   if (response.status === 401) {
-    // Clear invalid auth data
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
+    // This shouldn't normally be reached as fetchWithAuth handles 401
+    clearAuthData();
     throw new AuthError('Session expired. Please log in again.');
   }
   const error = await response.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
@@ -40,9 +156,9 @@ export const uploadFileToStorage = async (
     formData.append('summary', aiSummary);
   }
 
-  const response = await fetch(`${API_BASE}/files`, {
+  // Note: Don't set Content-Type header for FormData, browser will set it with boundary
+  const response = await fetchWithAuth(`${API_BASE}/files`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: formData,
   });
 
@@ -114,9 +230,8 @@ export const downloadPublicFile = async (publicId: string): Promise<{ blob: Blob
 };
 
 export const deleteFile = async (fileId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE}/files/${fileId}`, {
+  const response = await fetchWithAuth(`${API_BASE}/files/${fileId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
@@ -125,9 +240,7 @@ export const deleteFile = async (fileId: string): Promise<void> => {
 };
 
 export const listFiles = async (): Promise<SharedFile[]> => {
-  const response = await fetch(`${API_BASE}/files`, {
-    headers: getAuthHeaders(),
-  });
+  const response = await fetchWithAuth(`${API_BASE}/files`);
 
   if (!response.ok) {
     await handleResponseError(response);
