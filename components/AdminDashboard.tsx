@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { listFiles, deleteFile, AuthError } from '../services/apiStorage';
 import { SharedFile, User } from '../types';
 import FileUpload from './FileUpload';
-import { Trash2, Copy, ExternalLink, Download, Clock, ShieldCheck, RefreshCw, LogOut, Check, AlertCircle } from 'lucide-react';
+import { Trash2, Copy, Share2, Download, Clock, ShieldCheck, RefreshCw, LogOut, Check, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface AdminDashboardProps {
   user?: User;
@@ -73,9 +73,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
     showToast('Link copied to clipboard!', 'success');
   };
 
-  const openPublicView = (file: SharedFile) => {
+  const shareFile = async (file: SharedFile) => {
     const publicId = getPublicId(file);
-    window.open(`${window.location.origin}/#${publicId}`, '_blank');
+    const url = `${window.location.origin}/#${publicId}`;
+    
+    // Web Share API 지원 확인
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: file.name,
+          text: `Download "${file.name}" securely via SendSecure AI`,
+          url: url,
+        });
+        showToast('Shared successfully!', 'success');
+      } catch (error: any) {
+        // 사용자가 공유를 취소한 경우 무시
+        if (error.name !== 'AbortError') {
+          // 공유 실패 시 클립보드에 복사
+          navigator.clipboard.writeText(url);
+          showToast('Link copied to clipboard!', 'success');
+        }
+      }
+    } else {
+      // Web Share API 미지원 시 클립보드에 복사
+      navigator.clipboard.writeText(url);
+      showToast('Link copied to clipboard!', 'success');
+    }
   };
 
   const getExpirationText = (file: SharedFile) => {
@@ -197,11 +220,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigateToPubli
                           <Copy className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => openPublicView(file)}
+                          onClick={() => shareFile(file)}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Open Public Page in New Tab"
+                          title="Share"
                         >
-                          <ExternalLink className="w-4 h-4" />
+                          <Share2 className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleDelete(file.id)}
